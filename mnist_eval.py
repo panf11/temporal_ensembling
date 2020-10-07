@@ -1,4 +1,4 @@
-import torch
+import numpy as np
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 import config
@@ -44,7 +44,7 @@ idxs         = []
 ts = savetime()
 cfg = vars(config)
 
-for i in xrange(cfg['n_exp']):
+for i in np.arange(cfg['n_exp']):
     model = CNN(cfg['batch_size'], cfg['std'])
     seed = cfg['seeds'][i]
     acc, acc_best, l, sl, usl, indices = train(model, seed, **cfg)
@@ -55,7 +55,7 @@ for i in xrange(cfg['n_exp']):
     unsup_losses.append(usl)
     idxs.append(indices)
 
-print 'saving experiment'    
+print('saving experiment')
 
 save_exp(ts, losses, sup_losses, unsup_losses,
          accs, accs_best, idxs, **cfg)

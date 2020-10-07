@@ -18,12 +18,12 @@ def sample_train(train_dataset, test_dataset, batch_size, k, n_classes,
     other = torch.zeros(n - k)
     card = k // n_classes
     
-    for i in xrange(n_classes):
+    for i in np.arange(n_classes):
         class_items = (train_dataset.train_labels == i).nonzero()
         n_class = len(class_items)
         rd = np.random.permutation(np.arange(n_class))
-        indices[i * card: (i + 1) * card] = class_items[rd[:card]]
-        other[cpt: cpt + n_class - card] = class_items[rd[card:]]
+        indices[i * card: (i + 1) * card] = class_items[rd[:card]].data.squeeze()
+        other[cpt: cpt + n_class - card] = class_items[rd[card:]].data.squeeze()
         cpt += n_class - card
 
     other = other.long()
@@ -106,7 +106,7 @@ def train(model, seed, k=100, alpha=0.6, lr=0.002, beta2=0.99, num_epochs=150,
         w = weight_schedule(epoch, max_epochs, max_val, ramp_up_mult, k, n_samples)
      
         if (epoch + 1) % 10 == 0:
-            print 'unsupervised loss weight : {}'.format(w)
+            print('unsupervised loss weight : {}'.format(w))
         
         # turn it into a usable pytorch object
         w = torch.autograd.Variable(torch.FloatTensor([w]).cuda(), requires_grad=False)
@@ -126,9 +126,9 @@ def train(model, seed, k=100, alpha=0.6, lr=0.002, beta2=0.99, num_epochs=150,
 
             # save outputs and losses
             outputs[i * batch_size: (i + 1) * batch_size] = out.data.clone()
-            l.append(loss.data[0])
-            supl.append(nbsup * suploss.data[0])
-            unsupl.append(unsuploss.data[0])
+            l.append(loss.data)
+            supl.append(nbsup * suploss.data)
+            unsupl.append(unsuploss.data)
 
             # backprop
             loss.backward()
@@ -137,21 +137,22 @@ def train(model, seed, k=100, alpha=0.6, lr=0.002, beta2=0.99, num_epochs=150,
             # print loss
             if (epoch + 1) % 10 == 0:
                 if i + 1 == 2 * c:
-                    print ('Epoch [%d/%d], Step [%d/%d], Loss: %.6f, Time (this epoch): %.2f s' 
-                           %(epoch + 1, num_epochs, i + 1, len(train_dataset) // batch_size, np.mean(l), timer() - t))
+                    print('Epoch [%d/%d], Step [%d/%d], Loss: %.6f, Time (this epoch): %.2f s'
+                           %(epoch + 1, num_epochs, i + 1, len(train_dataset) // batch_size, np.mean([x.item() for x in l]),
+                             timer() - t))
                 elif (i + 1) % c == 0:
-                    print ('Epoch [%d/%d], Step [%d/%d], Loss: %.6f' 
-                           %(epoch + 1, num_epochs, i + 1, len(train_dataset) // batch_size, np.mean(l)))
+                    print('Epoch [%d/%d], Step [%d/%d], Loss: %.6f'
+                           %(epoch + 1, num_epochs, i + 1, len(train_dataset) // batch_size, np.mean([x.item() for x in l])))
 
         # update temporal ensemble
         Z = alpha * Z + (1. - alpha) * outputs
         z = Z * (1. / (1. - alpha ** (epoch + 1)))
 
         # handle metrics, losses, etc.
-        eloss = np.mean(l)
+        eloss = np.mean([x.item() for x in l])
         losses.append(eloss)
         sup_losses.append((1. / k) * np.sum(supl))  # division by 1/k to obtain the mean supervised loss
-        unsup_losses.append(np.mean(unsupl))
+        unsup_losses.append(np.mean([x.item() for x in unsupl]))
         
         # saving model 
         if eloss < best_loss:
@@ -162,7 +163,7 @@ def train(model, seed, k=100, alpha=0.6, lr=0.002, beta2=0.99, num_epochs=150,
     model.eval()
     acc = calc_metrics(model, test_loader)
     if print_res:
-        print 'Accuracy of the network on the 10000 test images: %.2f %%' % (acc)
+        print('Accuracy of the network on the 10000 test images: %.2f %%' % (acc))
         
     # test best model
     checkpoint = torch.load('model_best.pth.tar')
@@ -170,6 +171,6 @@ def train(model, seed, k=100, alpha=0.6, lr=0.002, beta2=0.99, num_epochs=150,
     model.eval()
     acc_best = calc_metrics(model, test_loader)
     if print_res:
-        print 'Accuracy of the network (best model) on the 10000 test images: %.2f %%' % (acc_best)
+        print('Accuracy of the network (best model) on the 10000 test images: %.2f %%' % (acc_best))
      
     return acc, acc_best, losses, sup_losses, unsup_losses, indices
